@@ -1,0 +1,217 @@
+<html>
+<head>
+<meta charset=utf-8 />
+<title>Campy College Map</title>
+<meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+<script src='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.js'></script>
+<link href='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.css' rel='stylesheet' />
+<style>
+  body { margin:0; padding:0; }
+  #map { position:fixed; top:0; bottom:0; right:205px; left:210px};
+  #college-list-div {z-index:10}
+  #college-list {
+      position:absolute;
+      top:0; right:0; width:200px;
+      bottom:0;
+      overflow-x:auto;
+      background:#f7f7f7;
+      margin:0;
+      font-family: "Avenir Next", "Avenir", sans-serif;
+      color: #103823;
+      padding:5px;
+}
+  #student-list {
+      position:absolute;
+      top:0; left:0; width:200px;
+      bottom:0;
+      overflow-x:auto;
+      background:#f7f7f7;
+      margin:0;
+      font-family: "Avenir Next", "Avenir", sans-serif;
+      color: #103823;
+      padding:5px;
+}
+  #student-list li, #college-list li {
+      padding:5px;
+      margin:0;
+      list-style-type:none;
+  }
+  #college-list #student-list, li:hover {
+      color:#103823;
+      background:#e7efff;
+  }
+</style>
+</head>
+<body>
+<script src='https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-label/v0.2.1/leaflet.label.js'></script>
+<link href='https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-label/v0.2.1/leaflet.label.css' rel='stylesheet' />
+<table width="100%">
+  <tr>
+    <td width="200">
+      <ul id='student-list'>
+        <h3><center>Student List</center></h3>
+        </ul>
+    </td>
+    <td>
+    <div id='map'></div>
+    </td>
+    <td width="200">
+      <ul id='college-list'>
+          <h3><center>College List</center></h3>
+        </ul>
+    </td>
+  </tr>
+</table>
+<script src='data_objs.js'></script>
+<script>
+// Utility Sorting Function - courtesy:
+// http://stackoverflow.com/questions/979256/sorting-an-array-of-javascript-objects
+var sort_by = function(field, reverse, primer){
+   var key = primer ?
+       function(x) {return primer(x[field])} :
+       function(x) {return x[field]};
+   reverse = !reverse ? 1 : -1;
+   return function (a, b) {
+       return a = key(a), b = key(b), reverse * ((a > b) - (b > a));
+     }
+}
+</script>
+<script>
+L.mapbox.accessToken = 'pk.eyJ1IjoiYW1hcnVyOTciLCJhIjoiVUtORmZIOCJ9.7nwJrixl6N2j8rkPopPPKg';
+//    var southWest = L.latLng(-89.9, -179.9),
+//        northEast = L.latLng(89.9, 179.9),
+//        bounds = L.latLngBounds(southWest, northEast);
+    var map = L.mapbox.map('map', 'nikhilrajaram.507e89ab', {
+//        maxBounds: bounds,
+        minZoom: 2,
+        center: [39.8282, -98.5795],
+        zoom: 5,
+    });
+
+var markerList = document.getElementById('college-list');
+
+// Sort by university name case insensitive
+markerDataObjects.sort(sort_by('collegeName', false, function(a){return a.toUpperCase()}));
+
+
+for (var i = 0; i < markerDataObjects.length; i++) {
+  var markerData = markerDataObjects[i];
+  var markerText = "<ins><i>" + markerData.collegeName + " (" + markerData.students.length + ")" + "</ins></i><br>" +
+                   "<div style='color:#787373'>" +
+	   	     markerData.students.join("<br>") + "</div>";
+  var marker = new L.marker(markerData.coordinate, {riseOnHover: true});
+  marker.bindLabel(markerText, {direction: 'auto'});
+  marker.on('click', function(e){map.setView(e.latlng, 6)});
+  marker.addTo(map);
+
+  // Now store the marker into the markerDataObject
+  markerData["markerObject"] = marker;
+
+
+  // Now create the college list item
+  var collegeListItem = document.createElement("li") ;
+  markerList.appendChild(collegeListItem);
+  collegeListItem.innerHTML = markerData.collegeName;
+  collegeListItem.setAttribute('markerIndex', i);
+  collegeListItem.addEventListener('click', function(e) {
+     clickCount++;
+    //alert('current clickcount: ', clickCount);
+	var clickedItem = e.target;
+	var markerIndex = clickedItem.getAttribute('markerIndex');
+	var marketData = markerDataObjects[markerIndex];
+	var marker = marketData.markerObject;
+        window.scrollTo(0,0);  // The list might be really long
+    originalOffset = marker.options.zIndexOffset;
+    if (clickCount > 1 && hidden == false) {
+        //alert("trying to hide labels");
+        previousMarker.hideLabel();
+        previousMarker.setZIndexOffset(originalOffset);
+        hidden = true;
+        clearTimeout(hideTimeout);
+    }
+    marker.setZIndexOffset(100);
+    marker.showLabel();
+	map.setView(marker.getLatLng(), 6);
+    previousMarker = marker;
+    hidden = false;
+    hideTimeout = setTimeout(function(){
+        if (hidden == false) {
+            previousMarker.hideLabel();
+            previousMarker.setZIndexOffset(originalOffset);
+            hidden = true;
+        }
+    },10000);
+    }
+        );
+}
+
+
+
+
+var studentList = document.getElementById('student-list');
+// Create a list of students and associated index into the
+// markerDataObjects.  This is so we can sort the list of students for
+// display
+var studentDataObjects = []
+for (var i = 0; i < markerDataObjects.length; i++) {
+  var markerData = markerDataObjects[i];
+    for (var j = 0; j  < markerData.students.length; j++) {
+	var student = markerData.students[j];
+	var studentDataObject = {"name": student, "markerIndex": i}
+	studentDataObjects.push(studentDataObject);
+    }
+}
+
+// Sort by student name case insensitive
+studentDataObjects.sort(sort_by('name', false, function(a){return a.toUpperCase()}));
+
+var clickCount = 0;
+var previousMarker;
+var originalOffset;
+var hidden = true;
+var hideTimeout;
+
+for (var x = 0; x < studentDataObjects.length; x++) {
+    var studentListItem = document.createElement("li") ;
+    studentList.appendChild(studentListItem);
+    var student = studentDataObjects[x];
+    studentListItem.innerHTML = student.name;
+    studentListItem.setAttribute('markerIndex', student.markerIndex);
+    studentListItem.addEventListener('click', function(e) {
+    clickCount++;
+    //alert('current clickcount: ', clickCount);
+	var clickedItem = e.target;
+	var markerIndex = clickedItem.getAttribute('markerIndex');
+	var marketData = markerDataObjects[markerIndex];
+	var marker = marketData.markerObject;
+        window.scrollTo(0,0);  // The list might be really long
+    originalOffset = marker.options.zIndexOffset;
+    if (clickCount > 1 && hidden == false) {
+        //alert("trying to hide labels");
+        previousMarker.hideLabel();
+        previousMarker.setZIndexOffset(originalOffset);
+        hidden = true;
+        clearTimeout(hideTimeout);
+    }
+    marker.setZIndexOffset(100);
+    marker.showLabel();
+	map.setView(marker.getLatLng(), 6);
+    previousMarker = marker;
+    hidden = false;
+    hideTimeout = setTimeout(function(){
+        if (hidden == false) {
+            previousMarker.hideLabel();
+            previousMarker.setZIndexOffset(originalOffset);
+            hidden = true;
+        }
+    },10000);
+    }
+        );
+}
+
+
+
+
+</script>
+</body>
+</html>
